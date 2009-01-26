@@ -47,8 +47,8 @@ class Block:
     def collides(self, dx, dy):
         for i in range(4):
             for j in range(4):
-                a, b = self.x + dx + i, self.y + dy + j
-                if self.c[i][j] and (a < 0 or b < 0 or a >= SCREEN_SIZE[0] or b >= SCREEN_SIZE[1] or self.field[a][b]):
+                a, b = self.y + dy + j, self.x + dx + i
+                if self.c[i][j] and (a < 0 or b < 0 or a >= SCREEN_SIZE[1] or b >= SCREEN_SIZE[0] or self.field.f[a][b]):
                     return True
         return False
 
@@ -58,7 +58,7 @@ class Block:
                 for i in range(4):
                     for j in range(4):
                         if self.c[i][j]:
-                            self.field[self.x + i][self.y + dy + j - 1] = self.sq
+                            self.field.f[self.y + dy + j - 1][self.x + i] = self.sq
             return True
 
         self.x += dx
@@ -75,8 +75,8 @@ class Block:
                     d[j][self.size - i - 1] = self.c[i][j]
         for i in range(4):
             for j in range(4):
-                a, b = self.x + i, self.y + j
-                if d[i][j] and (a < 0 or b < 0 or a >= SCREEN_SIZE[0] or b >= SCREEN_SIZE[1] or self.field[a][b]):
+                a, b = self.y + j, self.x + i
+                if d[i][j] and (a < 0 or b < 0 or a >= SCREEN_SIZE[1] or b >= SCREEN_SIZE[0] or self.field.f[a][b]):
                     return
         self.c = d
 
@@ -88,16 +88,19 @@ class Block:
 
 class Field:
     def __init__(self):
-        self.f = [[None] * SCREEN_SIZE[1] for i in range(SCREEN_SIZE[0])]
+        self.f = [[None] * SCREEN_SIZE[0] for i in range(SCREEN_SIZE[1])]
 
-    def __getitem__(self, i): return self.f[i]
-    def __setitem__(self, i, x): self.f[i] = x
+    def check_filled(self):
+        for i in range(SCREEN_SIZE[1]):
+            while all(self.f[i]):
+                del self.f[i]
+                self.f.insert(0, [None] * SCREEN_SIZE[0])
 
     def draw(self, screen):
-        for i in range(SCREEN_SIZE[0]):
-            for j in range(SCREEN_SIZE[1]):
+        for i in range(SCREEN_SIZE[1]):
+            for j in range(SCREEN_SIZE[0]):
                 if self.f[i][j]:
-                    screen.blit(self.f[i][j], (i * SQ_SIZE, j * SQ_SIZE))
+                    screen.blit(self.f[i][j], (j * SQ_SIZE, i * SQ_SIZE))
 
 def main():
     pyg.init()
@@ -117,8 +120,8 @@ def main():
 
     field = Field()
 
-    b = Block(field)
-    b.create(random.randint(0, 6))
+    block = Block(field)
+    block.create(random.randint(0, 6))
 
     last_fall = 0
     while True:
@@ -127,18 +130,21 @@ def main():
             elif event.type == KEYDOWN:
                 k = event.key
                 if k == K_ESCAPE: return
-                elif k == K_UP: b.rotate(True)
-                elif k == K_LEFT: b.move(-1, 0)
-                elif k == K_RIGHT: b.move(1, 0)
+                elif k == K_UP: block.rotate(True)
+                elif k == K_LEFT: block.move(-1, 0)
+                elif k == K_RIGHT: block.move(1, 0)
+                elif k == K_DOWN:
+                    while not block.move(0, 1): pass
 
         time = pyg.time.get_ticks()
         if time - last_fall >= FALL_DELAY:
-            if b.move(0, 1):
-                b.create(random.randint(0, 6))
+            if block.move(0, 1):
+                field.check_filled()
+                block.create(random.randint(0, 6))
             last_fall = time
 
         screen.fill(SCREEN_BG_COLOR)
-        b.draw(screen)
+        block.draw(screen)
         field.draw(screen)
         pyg.display.flip()
 
