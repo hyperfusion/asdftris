@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-import sys
+import sys, random
 import pygame as pyg
 from pygame.locals import *
 
-SCREEN_SIZE = (10, 25)
+SCREEN_SIZE = (10, 15)
 SCREEN_BG_COLOR = (0, 0, 0)
 SQ_SIZE = 20
 SQ_BORDER1 = (204, 204, 204)
@@ -18,7 +18,7 @@ BLOCK_COLORS = (
     (160, 32, 240), # T
     (255, 0, 0)     # Z
 )
-FALL_DELAY = 1000
+FALL_DELAY = 500
 
 BLOCK_DEF = (
     (((0, 1), (1, 1), (2, 1), (3, 1)), 4), # I
@@ -31,29 +31,39 @@ BLOCK_DEF = (
 )
 
 SQUARES = []
-FIELD = [[None] * SCREEN_SIZE[1] for i in range(SCREEN_SIZE[0])]
 
 class Block:
+    def __init__(self, field):
+        self.field = field
+
     def create(self, type):
         self.type = type
         self.c = [[False] * 4 for i in range(4)]
         for i in BLOCK_DEF[type][0]: self.c[i[0]][i[1]] = True
         self.size = BLOCK_DEF[type][1]
-        self.color = BLOCK_COLORS[type]
+        self.sq = SQUARES[self.type]
         self.x, self.y = 0, 0
 
     def collides(self, dx, dy):
         for i in range(4):
             for j in range(4):
                 a, b = self.x + dx + i, self.y + dy + j
-                if self.c[i][j] and (a < 0 or b < 0 or a >= SCREEN_SIZE[0] or b >= SCREEN_SIZE[1] or FIELD[a][b]):
+                if self.c[i][j] and (a < 0 or b < 0 or a >= SCREEN_SIZE[0] or b >= SCREEN_SIZE[1] or self.field[a][b]):
                     return True
         return False
 
     def move(self, dx, dy):
-        if self.collides(dx, dy): return
+        if self.collides(dx, dy):
+            if dy >= 1:
+                for i in range(4):
+                    for j in range(4):
+                        if self.c[i][j]:
+                            self.field[self.x + i][self.y + dy + j - 1] = self.sq
+            return True
+
         self.x += dx
         self.y += dy
+        return False
 
     def rotate(self, dir):
         d = [[False] * 4 for i in range(4)]
@@ -66,7 +76,7 @@ class Block:
         for i in range(4):
             for j in range(4):
                 a, b = self.x + i, self.y + j
-                if d[i][j] and (a < 0 or b < 0 or a >= SCREEN_SIZE[0] or b >= SCREEN_SIZE[1] or FIELD[a][b]):
+                if d[i][j] and (a < 0 or b < 0 or a >= SCREEN_SIZE[0] or b >= SCREEN_SIZE[1] or self.field[a][b]):
                     return
         self.c = d
 
@@ -74,7 +84,20 @@ class Block:
         for i in range(4):
             for j in range(4):
                 if self.c[i][j]:
-                    screen.blit(SQUARES[self.type], ((self.x + i) * SQ_SIZE, (self.y + j) * SQ_SIZE))
+                    screen.blit(self.sq, ((self.x + i) * SQ_SIZE, (self.y + j) * SQ_SIZE))
+
+class Field:
+    def __init__(self):
+        self.f = [[None] * SCREEN_SIZE[1] for i in range(SCREEN_SIZE[0])]
+
+    def __getitem__(self, i): return self.f[i]
+    def __setitem__(self, i, x): self.f[i] = x
+
+    def draw(self, screen):
+        for i in range(SCREEN_SIZE[0]):
+            for j in range(SCREEN_SIZE[1]):
+                if self.f[i][j]:
+                    screen.blit(self.f[i][j], (i * SQ_SIZE, j * SQ_SIZE))
 
 def main():
     pyg.init()
@@ -91,9 +114,11 @@ def main():
         pyg.draw.line(i, SQ_BORDER2, (0, SQ_SIZE-1), (SQ_SIZE-1, SQ_SIZE-1))
         pyg.draw.line(i, SQ_BORDER2, (SQ_SIZE-1, 0), (SQ_SIZE-1, SQ_SIZE-1))
         SQUARES.append(i)
-    
-    b = Block()
-    b.create(0)
+
+    field = Field()
+
+    b = Block(field)
+    b.create(random.randint(0, 6))
 
     last_fall = 0
     while True:
@@ -102,25 +127,19 @@ def main():
             elif event.type == KEYDOWN:
                 k = event.key
                 if k == K_ESCAPE: return
-                elif k == K_k: b.rotate(True)
-                elif k == K_i: b.rotate(False)
-                elif k == K_h: b.move(-1, 0)
-                elif k == K_l: b.move(1, 0)
-                elif k == K_0: b.create(0)
-                elif k == K_1: b.create(1)
-                elif k == K_2: b.create(2)
-                elif k == K_3: b.create(3)
-                elif k == K_4: b.create(4)
-                elif k == K_5: b.create(5)
-                elif k == K_6: b.create(6)
+                elif k == K_UP: b.rotate(True)
+                elif k == K_LEFT: b.move(-1, 0)
+                elif k == K_RIGHT: b.move(1, 0)
 
         time = pyg.time.get_ticks()
         if time - last_fall >= FALL_DELAY:
-            b.move(0, 1)
+            if b.move(0, 1):
+                b.create(random.randint(0, 6))
             last_fall = time
 
         screen.fill(SCREEN_BG_COLOR)
         b.draw(screen)
+        field.draw(screen)
         pyg.display.flip()
 
 if __name__ == '__main__':
